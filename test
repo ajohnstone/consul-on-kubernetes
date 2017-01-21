@@ -1,3 +1,5 @@
+#!/bin/sh
+
 function get_status {
     local consul_num=${1:-0};
     kubectl get pods -owide;
