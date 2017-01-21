@@ -66,7 +66,6 @@ spec:
                 -config-file=/etc/consul/server.json \
                 -datacenter=dc1 \
                 -domain=cluster.local \
-                -bootstrap-expect=${INITIAL_CLUSTER_SIZE} \
                 ${PEERS} \
                 ${GOSSIP_KEY} \
                 -bind=0.0.0.0 \
