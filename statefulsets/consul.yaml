@@ -29,6 +29,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: GOSSIP_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
@@ -54,9 +58,15 @@ spec:
                 done
               done
               PEERS=""
+              PEERS_JSON="["
               for i in $(seq 0 $((${INITIAL_CLUSTER_SIZE} - 1))); do
                   PEERS="${PEERS}${PEERS:+ } -retry-join ${STATEFULSET_NAME}-${i}.${STATEFULSET_NAME}.${NAMESPACE}.svc.cluster.local"
+                  PEERS_JSON="${PEERS_JSON}\"${STATEFULSET_NAME}-${i}.${STATEFULSET_NAME}.${NAMESPACE}.svc.cluster.local\","
               done
+              PEERS_JSON=$(echo "${PEERS_JSON}" | sed 's/,$/]/');
+              if [ -e "/var/lib/consul/raft/" ]; then
+                  echo "${PEERS_JSON}" >> /var/lib/consul/raft/peers.json;
+              fi
               exec /bin/consul agent \
                 -data-dir=/var/lib/consul \
                 -server \
@@ -66,6 +76,7 @@ spec:
                 -config-file=/etc/consul/server.json \
                 -datacenter=dc1 \
                 -domain=cluster.local \
+                -node=${POD_NAME} \
                 ${PEERS} \
                 ${GOSSIP_KEY} \
                 -bind=0.0.0.0 \

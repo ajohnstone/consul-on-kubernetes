@@ -41,7 +41,7 @@ echo;
 function get_status {
     local conul_num=${1:-0};
     kubectl get pods -owide;
-    kubectl exec --tty -i consul-${conul_num} -- consul members;
+    kubectl exec --tty -i consul-${conul_num} -- consul members -detailed;
     kubectl exec --tty -i consul-${conul_num} -- consul operator raft -list-peers;
 }
 

@@ -3,15 +3,15 @@
 function get_status {
     local consul_num=${1:-0};
     kubectl get pods -owide;
-    kubectl exec --tty -i consul-${consul_num} -- consul members;
-    kubectl exec --tty -i consul-${consul_num} -- consul operator raft -list-peers;
+    kubectl exec --tty -i consul-${consul_num} -- consul members -detailed;
+    kubectl exec --tty -i consul-${consul_num} -- consul operator raft -list-peers -stale=true;
     kubectl exec --tty -i consul-${consul_num} -- consul info;
 
     kubectl exec --tty -i consul-${consul_num} -- consul kv put test 1
 }
 
 get_status;
-
+exit;
 kubectl delete pods consul-1 consul-2 consul-3;
 sleep 1;
 get_status;
@@ -24,3 +24,5 @@ kubectl patch statefulset/consul -p '{"spec":{"replicas": 3}}'
 sleep 5;
 
 get_status;
+
+addr=$(kubectl exec --tty -i consul-0 -- consul operator raft -list-peers | awk '/leader/ {print $2}');
