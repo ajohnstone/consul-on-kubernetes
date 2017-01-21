@@ -1,9 +1,11 @@
 #!/bin/sh
 
-rm ca-key.pem ca.csr ca.pem consul-key.pem consul.csr consul.pem
-kubectl delete statefulset consul
-kubectl delete pvc data-consul-0 data-consul-1 data-consul-2
-kubectl delete svc consul
-kubectl delete jobs consul-join
-kubectl delete secrets consul
-kubectl delete configmaps consul
+rm -fv ca-key.pem ca.csr ca.pem consul-key.pem consul.csr consul.pem
+kubectl delete statefulset consul  > /dev/null 2>&1;
+kubectl get pvc --no-headers | awk '/data-consul/ {print $1}' | xargs --no-run-if-empty kubectl delete pvc
+kubectl get pv --no-headers | awk '/data-consul/ {print $1}' | xargs --no-run-if-empty kubectl delete pv
+kubectl delete svc consul > /dev/null 2>&1;
+kubectl delete jobs consul-join  > /dev/null 2>&1;
+kubectl delete secrets consul  > /dev/null 2>&1;
+kubectl delete configmaps consul > /dev/null 2>&1;
+

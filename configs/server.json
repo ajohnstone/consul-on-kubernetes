@@ -7,5 +7,6 @@
   "verify_server_hostname": true,
   "ports": {
     "https": 8443
-  }
+  },
+  "rejoin_after_leave": true
 }

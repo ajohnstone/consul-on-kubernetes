@@ -4,7 +4,7 @@ metadata:
   name: consul
 spec:
   serviceName: consul
-  replicas: 3
+  replicas: 5
   template:
     metadata:
       labels:
@@ -17,28 +17,60 @@ spec:
         - name: consul
           image: "consul:0.7.2"
           env:
+            - name: INITIAL_CLUSTER_SIZE
+              value: "3"
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: STATEFULSET_NAME
+              value: consul
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: GOSSIP_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
                   name: consul
                   key: gossip-encryption-key
-          args:
-            - "agent"
-            - "-advertise=$(POD_IP)"
-            - "-bind=0.0.0.0"
-            - "-bootstrap-expect=3"
-            - "-client=0.0.0.0"
-            - "-config-file=/etc/consul/server.json"
-            - "-datacenter=dc1"
-            - "-data-dir=/var/lib/consul"
-            - "-domain=cluster.local"
-            - "-encrypt=$(GOSSIP_ENCRYPTION_KEY)"
-            - "-server"
-            - "-ui"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["consul","leave"]
+          command:
+            - "/bin/sh"
+            - "-exc"
+            - |
+              if [ -e /etc/consul/secrets/gossip-key ]; then
+                echo "{\"encrypt\": \"$(base64 /etc/consul/secrets/gossip-key)\"}" > /etc/consul/encrypt.json
+                GOSSIP_KEY="-config-file /etc/consul/encrypt.json"
+              fi
+              for i in $(seq 0 $((${INITIAL_CLUSTER_SIZE} - 1))); do
+                while true; do
+                    echo "Waiting for ${STATEFULSET_NAME}-${i}.${STATEFULSET_NAME} to come up"
+                    ping -W 1 -c 1 ${STATEFULSET_NAME}-${i}.${STATEFULSET_NAME}.${NAMESPACE}.svc.cluster.local > /dev/null && break
+                    sleep 1s
+                done
+              done
+              PEERS=""
+              for i in $(seq 0 $((${INITIAL_CLUSTER_SIZE} - 1))); do
+                  PEERS="${PEERS}${PEERS:+ } -retry-join ${STATEFULSET_NAME}-${i}.${STATEFULSET_NAME}.${NAMESPACE}.svc.cluster.local"
+              done
+              exec /bin/consul agent \
+                -data-dir=/var/lib/consul \
+                -server \
+                -ui \
+                -bootstrap-expect=${INITIAL_CLUSTER_SIZE} \
+                -advertise=${POD_IP} \
+                -config-file=/etc/consul/server.json \
+                -datacenter=dc1 \
+                -domain=cluster.local \
+                -bootstrap-expect=${INITIAL_CLUSTER_SIZE} \
+                ${PEERS} \
+                ${GOSSIP_KEY} \
+                -bind=0.0.0.0 \
+                -client=0.0.0.0
           volumeMounts:
             - name: data
               mountPath: /var/lib/consul
